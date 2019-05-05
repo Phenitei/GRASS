@@ -1,19 +1,29 @@
-SRCDIR   = src
-BINDIR   = bin
-INCLUDES = include
+# Dirs
+SRCDIR   = ./src
+BINDIR   = ./bin
+INCLUDES = ./include
+OBJDIR   = ./objects
 
+# Compiler
 CC=gcc
-CFLAGS=-Wall -Wextra -g -fno-stack-protector -z execstack -lpthread -std=gnu11 -I $(INCLUDES)/ -m32
-DEPS = $(wildcard $(INCLUDES)/%.h)
 
-all: $(BINDIR)/client $(BINDIR)/server $(DEPS)
+# Stuff to enable stack smashing and such
+CFLAGS+=-fno-stack-protector -z execstack -I $(INCLUDES)/
 
-$(BINDIR)/client: $(SRCDIR)/client.c
-	$(CC) $(CFLAGS) $< -o $@
+# Libraries to link against
+LDLIBS += -lpthread
 
-$(BINDIR)/server: $(SRCDIR)/server.c
-	$(CC) $(CFLAGS) $< -o $@
+all: $(BINDIR)/client $(BINDIR)/server
+
+$(OBJDIR)/grass.o: $(SRCDIR)/grass.c
+	$(CC) -c -o $@ $< $(CFLAGS) $(LDLIBS)
+
+$(BINDIR)/client: $(SRCDIR)/client.c $(OBJDIR)/grass.o
+	$(CC) -o $@ $? $(CFLAGS) $(LDLIBS)
+
+$(BINDIR)/server: $(SRCDIR)/server.c $(OBJDIR)/grass.o
+	$(CC) -o $@ $? $(CFLAGS) $(LDLIBS)
 
 .PHONY: clean
 clean:
-	rm -f $(BINDIR)/client $(BINDIR)/server
+	rm -f $(BINDIR)/* $(OBJDIR)/*

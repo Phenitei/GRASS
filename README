@@ -1,0 +1,16 @@
+# GRASS
+
+We are proud to present Grep As A Service, because Everything As A Service is
+apparently something nowadays.
+
+## Authors
+
+Desroches Joachim (257178)
+Juif Benoit (261829)
+Lemer Olivier (257436)
+
+## Usage
+
+Use make(1) to build the project. To rebuild the whole project, you can use
+the target `clean` before the default `all` target. Ensure you create and set
+the base directory you want to use.
