@@ -448,6 +448,8 @@ respond(int sockfd)
     char msg[strlen(response_buff) + strlen(SUCCESS_RESPONSE) + 1 + 1];
 
     sprintf(msg, "%s", response_buff);
+    if (strlen(msg) == 0)
+      sprintf(msg, "OK");
 
     if(strncmp(response_buff, "OK", MAX_RESPONSE_LEN) != 0
             && strncmp(response_buff, "get port", 8) != 0
@@ -717,7 +719,7 @@ handle_ls(char** argv)
     char cmd[cmd_len + 1];
 
     cmd[cmd_len] = '\0';
-    sprintf(cmd, "ls -l %s", curr_abs_path);
+    sprintf(cmd, "ls -l \"%s\"", curr_abs_path);
 
     return exec_cmd(cmd);
 }
@@ -940,7 +942,7 @@ handle_grep(char** argv)
     char san_arg[MAX_ARG_LEN + 1];
     san_arg[MAX_ARG_LEN] = '\0';
     sanitize(san_arg, argv[0]);
-    sprintf(cmd, "cd %s;grep -rl \"%s\"; cd %s", curr_abs_path, san_arg, base_abs_path);
+    sprintf(cmd, "cd \"%s\";grep -rl \"%s\"; cd \"%s\"", curr_abs_path, san_arg, base_abs_path);
 
     int ret = exec_cmd(cmd);
     free(cmd);
