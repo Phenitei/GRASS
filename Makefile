@@ -13,7 +13,7 @@ CFLAGS+=-fno-stack-protector -z execstack -I $(INCLUDES)/
 # Libraries to link against
 LDLIBS += -lpthread
 
-all: $(BINDIR)/client $(BINDIR)/server
+all: $(BINDIR)/client $(BINDIR)/server reports
 
 $(OBJDIR)/grass.o: $(SRCDIR)/grass.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(LDLIBS)
@@ -27,3 +27,13 @@ $(BINDIR)/server: $(SRCDIR)/server.c $(OBJDIR)/grass.o
 .PHONY: clean
 clean:
 	rm -f $(BINDIR)/* $(OBJDIR)/*
+
+.SUFFIXES: .mkd .pdf
+.mkd.pdf:
+	pandoc --standalone -o $@ -t beamer -V theme:CambridgeUS -i $<
+
+reports: presentation writeup
+
+presentation: reports/presentation.pdf
+
+writeup:

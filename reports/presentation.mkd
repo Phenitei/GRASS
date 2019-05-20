@@ -1,0 +1,45 @@
+---
+title: GRASS Project Presentation
+author:
+    - J. Desroches
+    - L. Juif
+    - O. Lemer
+institute: EPFL
+subject: Software Security
+date: \today
+...
+
+# Project Design Choices
+
+## Language
+
+ * Use C rather than C++:
+    - Simplicity brings security
+    - Additional control
+    - Explicit responsability
+
+## Server-side validation
+
+ * Sanitize function, canonify paths
+ * ```
+   char escaped_chars[18] = {'\\', '"', '`', '$',
+   '(', '{', '[', ')', '}', ']', ';', '&', '|',
+   '~', '?', '!', '<', '>'};
+   ```
+ * Does not protect against DOS: `^Z`, `^D`, `^C`, etc...
+
+## Use system library functions
+
+ * Least Priviledge: avoid using shell as much as possible
+ * Use `mkdirat(3)` instead of `mkdir(3)`
+ * *et caetera*...
+
+## Seperate user threads
+
+ * No mutable shared information
+ * All functions writing to disk use seperate tmp files
+ * Systematic addition of `\0` to strings
+
+## Questions
+
+ * ???
