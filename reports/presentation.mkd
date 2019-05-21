@@ -11,6 +11,10 @@ date: \today
 
 # Project Design Choices
 
+## High-Level Design
+ * Server and client modules
+ * Common library for socket management and file transfer
+
 ## Language
 
  * Use C rather than C++:
@@ -39,6 +43,26 @@ date: \today
  * No mutable shared information
  * All functions writing to disk use seperate tmp files
  * Systematic addition of `\0` to strings
+
+# Hidden Bugs
+
+## Stack Buffer Overflow
+ * Sanitization increases string length
+ *  ```
+    char san_arg[MAX_ARG_LEN + 1];
+    san_arg[MAX_ARG_LEN] = '\0';
+    sanitize(san_arg, argv[0]);
+    ```
+
+## Stack Buffer Overflow
+ * File receiver tries to be clever
+ * ```
+   #define min(a, b) (( size_t )(int)(( ssize_t )(a) < (b) ? (a) : (b)))
+   [...]
+   char buffer [MAX_TR_SIZE];
+   size_t to_recv_len = min( file_len − written_len , MAX_TR_SIZE);
+   recv(sockfd, buffer, to_recv_len, 0);
+   ```
 
 ## Questions
 

@@ -727,9 +727,9 @@ handle_ls(char** argv)
 int
 handle_ping(char** argv)
 {
-    char san_arg[MAX_ARG_LEN + 1];
-    san_arg[MAX_ARG_LEN] = '\0';
-    sanitize(san_arg, argv[0]);
+  char san_arg[MAX_ARG_LEN + 1];
+  san_arg[MAX_ARG_LEN] = '\0';
+  sanitize(san_arg, argv[0]);
 
     size_t cmd_len = MAX_CMD_LEN + MAX_ARG_LEN + 1;
     char* cmd = malloc(sizeof(char) * (cmd_len + 1));
