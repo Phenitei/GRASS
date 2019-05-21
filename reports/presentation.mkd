@@ -7,6 +7,8 @@ author:
 institute: EPFL
 subject: Software Security
 date: \today
+output: beamer_presentation
+classoption: "aspectratio=169"
 ...
 
 # Project Design Choices
@@ -60,7 +62,7 @@ date: \today
    #define min(a, b) (( size_t )(int)(( ssize_t )(a) < (b) ? (a) : (b)))
    [...]
    char buffer [MAX_TR_SIZE];
-   size_t to_recv_len = min( file_len − written_len , MAX_TR_SIZE);
+   size_t to_recv_len = min( file_len - written_len , MAX_TR_SIZE);
    recv(sockfd, buffer, to_recv_len, 0);
    ```
 
