@@ -1,0 +1,198 @@
+\documentclass[8pt, oneside, letterpaper]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper, total={6in, 8in}]{geometry}
+
+\usepackage{color}   %May be necessary if you want to color links
+\usepackage{hyperref}
+\usepackage{blindtext}
+\usepackage{enumerate}
+%\usepackage{bbold}
+\usepackage{scrextend}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xfrac}
+\usepackage{bm}
+\usepackage{tikz}
+\usepackage{centernot}
+\usepackage{amsthm}
+\usepackage{framed}
+\usepackage{graphicx}
+\usepackage{listings}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem*{property}{Property}
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem*{corollary}{Corollary}
+\newtheorem*{remark}{Remark}
+\newtheorem{definition}{Definition}[section]
+\usepackage[tworuled,noend]{algorithm2e}
+
+\newtheorem*{claim}{Claim}
+\newtheorem*{note}{Note}
+
+\newcommand*{\norm}[1]{\left|\left|#1\right|\right|}
+\newcommand*{\Var}{\text{\normalfont Var}}
+\newcommand*{\var}{\text{\normalfont Var}}
+\newcommand*{\median}{\text{\normalfont median}}
+\renewcommand*{\th}{^\text{th}}
+\newcommand*{\R}{\mathbb{R}}
+\newcommand*{\N}{\mathbb{N}}
+\newcommand*{\I}{\mathbb{I}}
+\renewcommand*{\[}{[\![}
+  \renewcommand*{\]}{]\!]}
+\newcommand{\niton}{\not\owns}
+\newcommand{\rpm}{\raisebox{.2ex}{$\scriptstyle\pm$}}
+
+
+\title{GrAsS - Writeup}
+%\author{Louis Coulon, Joachim Desroches, Olivier Lemer}
+\date{}
+\begin{document}
+\maketitle
+%\newpage
+
+%\paragraph{Statement}
+%
+%\textit{You will prepare a short writeup (max 2 pages) on the reported
+%  vulnerabilities and your architecture, detailing how you mitigate different
+%  attack vectors; deadline for the report is May 26 (the writeup should contain
+%  the summary of the presentation as well as the following discussion)}
+%
+%\textit{A summary of design, implementation, and special optimizations.\\
+%Discuss the discovered vulnerabilities.}
+%
+%\begin{itemize}
+%\item Architecture, design choices, implementation, optimizations
+%\item How attack vectors are mitigated
+%\item Reported vulnerabilities,
+%\end{itemize}
+%
+%\section {Introduction}
+
+
+\section* {Implementation}
+As a general rule, we tried to keep everything as simple as possible, as a way
+to reduce the attack surface and to maintain good control over our code's
+behavior. This motivated our choice of C rather than C++: we get explicit
+control and responsibility of the memory, and all higher-level security-related
+measures, such as sanitization or path management must be designed and
+implemented by ourselves, which gives us explicit and finer-grained control.
+
+The project's structure follows the same rule and remains simple and efficient:
+our very simple server and client pair shares a common library for socket
+management and file transfer.
+
+\paragraph {Server/Client architecture}
+The server is responsible for all validation and sanitization, as the client
+should not -- and cannot -- be trusted: because the attacker has direct access
+only to the client, this reduces the effective attack surface of the overall
+system, but more importantly the server cannot rely on which client program will
+be used, and an attacker could very well implement their own, malicious client.
+
+\paragraph {Connection threads and concurrency}
+Upon receiving a new connection, the server will create a new thread to manage
+communication with the new client. Because the only information that is shared
+between clients -- the list of users -- is immutable once the server starts
+accepting connections, there is no risk of concurrency-based attacks by
+well-synchronized, malicious clients. Although the actual base directory is also
+shared, any concurrency risks are taken care of by the system on which the
+server is run, which we assume can be trusted in that sense. Finally, all
+temporary files created during command executions are unique for each user.
+
+\paragraph {Command parsing and execution}
+As much as possible, the server avoids using the shell, as this requires more
+careful handling like sanitization and string concatenations, which open the
+door to potential string format or buffer overflow vulnerabilities. We rather
+make use of calls to functions such as \texttt{mkdirat(2)} when possible.
+
+Similarly, the user's current working directory is explicitely maintained by the
+server in the form of an absolute, canonic path. A \texttt{canonify\_path}
+function is used on all manipulated paths, so that their uniform and consistent
+representation makes persmission checks straightforward, while also eliminating
+any tricks to get out of the base directory: either a path can be canonified and
+is correct, or it is rejected.
+
+For commands such as \texttt{grep} or \texttt{ls} for which the use of the
+standard \texttt{system} function was unavoidable, sanitization of the user's
+input has to be made. A sanitizer is given a set of characters to escape, and
+the entire input is surrounded by quotes. All buffers -- which are
+systematically null-terminated -- are allocated large enough to take into
+account the size of the user's input, and its potential growth due to
+sanitization, in order to avoid buffer overflows (except when we purposefully
+forgot; see bug ???).
+
+\paragraph {File transfer}
+A lot of modularization was made for file transfer, since both the client and
+the server execute the same code when sending or receiving a file. Both have a
+function responsible for starting a new thread and a new connection for the file
+transfer, which take as argument the function that must be called upon
+successful connection (i.e. whether to send or receive a file), so that the
+transfer thread creation code can be reused for both the \texttt{put} and the
+\texttt{get} command. The part of the code that is not shared between client and
+server is the one responsible for creating a new socket and managing the
+connection, as it is always the server that will open a new connection and
+listen on it.
+
+\section* {Vulnerabilities}
+Among the following vulnerabilities that we hid in our code, only the code
+injection has been discovered and reported by 5 other teams. We here explain how
+they work and how to fix them.
+
+\paragraph {Vulnerability 1: Stack Buffer Overflow}
+
+This exploit takes advantage of the fact that sanitization of the user input can
+double the size of the string, as any character can potentially be replaced
+itself and a backslash preceeding it.
+
+When calling the sanitizer, a buffer is allocated on the stack, and the
+sanitization function is tasked to fill it with a sanitized version of the
+user's input. Because this receiving buffer has the same size as the
+non-sanitized buffer, sanitization might overflow it and allow a
+buffer-overflow. Allocating a buffer twice the current size would fix this
+vulnerability.
+
+\paragraph {Vulnerability 2: Stack Buffer Overflow}
+Upon receiving the server's answer to a \texttt{put} command, the client creates
+a thread that will send the file to the server. The buffer the client uses to
+read from the file has max size \texttt{MAX\_LINE\_SIZE}, while the server uses
+a buffer of size \texttt{MAX\_TR\_SIZE}, which is set to be smaller.
+Additionally, the server does something stupid by computing the minimum between
+the expected received length, and the maximum transfer size. However the
+\texttt{min} macro is wrong:
+\begin{lstlisting}[language=C]
+  #define min(a, b) ((size_t)(int)((ssize_t)(a) < (b) ? (a) : (b)))
+\end{lstlisting}
+We can therefore choose a value for \texttt{file\_len} such that it is smaller
+than \texttt{MAX\_TR\_SIZE} if cast as a \texttt{ssize\_t}, but \emph{larger} if
+cast as an \texttt{int}. Such a value can be, for example, $2^{8 * 8 - 1}$,
+which casts to a negative \texttt{ssize\_t}, and to zero as an \texttt{int}.
+Since the receiving buffer has size \texttt{MAX\_TR\_SIZE}, this allows a buffer
+overflow. A correct implementation of the \texttt{min} macro would solve this
+issue.
+
+\paragraph {Vulnerability 3: Format String Vulnerability}
+When receiving a file, the server uses \texttt{fprintf(file, recv\_buffer)}. The
+content of the file can thus be used to take advantage the format string
+vulnerability: reading the receiving file can be used for inspection in order to
+ultimately overwrite a return address to gain flow control by sending a file
+containing a string of the form
+\texttt{\%<hijack\_16lsb>c\%<buffer + ptr\_offset>\$hn<ra\_location>}. Replacing
+the line with \texttt{fprintf(file, ``\%s'', recv\_buffer)} would solve this issue.
+
+\paragraph {Vulnerability 4: Command Injection Vulnerability}
+As presented above, user-provided strings are usually sanitized. However it is
+done only when directly fed to the \texttt{system} function; the argument to
+\texttt{mkdirat} is not sanitized. This allows an attacker to inject a command
+into a folder name, cd into it and execute a command that will use the current
+directory's absolute path, such as \texttt{ls} or \texttt{grep}. This can be
+fixed by sanitizing \emph{all} user input.
+
+\paragraph {Vulnerability 5: Buffer Overflow}
+Upon executing \texttt{cd}, the server will concatenate the provided relative
+path to the current working directory, before trying to canonify it. It will
+expect the resulting concatenation to be twice the size of a maximum path, which
+is actually less than the accepted max size of a user's input. Therefore the
+concatenated string might overflow its buffer.
+
+
+
+\end{document}
